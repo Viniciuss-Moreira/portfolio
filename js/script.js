@@ -71,9 +71,28 @@ function inicializarFullpage() {
   atualizarTemaDots();
 }
 
-function navegarParaSecao(index) {
+function atualizarUrl(index) {
+  const rotas = ["", "sobremim", "formacao", "cursos", "projetos", "competencias", "contato"];
+  const rota = rotas[index];
+  
+  let currentPath = window.location.pathname;
+  let basePath = currentPath.replace(/\/(sobremim|formacao|cursos|projetos|competencias|contato)\/?$/, '');
+  if (!basePath.endsWith('/')) basePath += '/';
+  
+  const novaUrl = basePath + rota;
+  
+  if (window.location.pathname !== novaUrl) {
+    window.history.pushState({ sectionIndex: index }, "", novaUrl);
+  }
+}
+
+function navegarParaSecao(index, skipPushState = false) {
   if (isAnimating || index === currentSection || index < 0 || index >= sections.length) {
     return;
+  }
+
+  if (!skipPushState) {
+    atualizarUrl(index);
   }
 
   isAnimating = true;
@@ -288,26 +307,8 @@ function configurarMenuMobile() {
       toggle.classList.remove("active");
       links.classList.remove("open");
 
-      const targetId = this.getAttribute("href").replace("#", "");
-      for (let s = 0; s < sections.length; s++) {
-        if (sections[s].id === targetId) {
-          navegarParaSecao(s);
-          break;
-        }
-      }
-    });
-  }
-}
-
-function configurarNavLinks() {
-  const links = document.querySelectorAll('a[href^="#"]');
-
-  for (let i = 0; i < links.length; i++) {
-    links[i].addEventListener("click", function (e) {
-      const href = this.getAttribute("href");
-      if (href && href.length > 1) {
-        e.preventDefault();
-        const targetId = href.replace("#", "");
+      const targetId = this.getAttribute("data-target");
+      if (targetId) {
         for (let s = 0; s < sections.length; s++) {
           if (sections[s].id === targetId) {
             navegarParaSecao(s);
@@ -318,6 +319,64 @@ function configurarNavLinks() {
     });
   }
 }
+
+function configurarNavLinks() {
+  const links = document.querySelectorAll('a[data-target]');
+
+  for (let i = 0; i < links.length; i++) {
+    links[i].addEventListener("click", function (e) {
+      e.preventDefault();
+      const targetId = this.getAttribute("data-target");
+      if (targetId) {
+        for (let s = 0; s < sections.length; s++) {
+          if (sections[s].id === targetId) {
+            navegarParaSecao(s);
+            break;
+          }
+        }
+      }
+    });
+  }
+}
+
+function verificarRotaAtual() {
+  const path = window.location.pathname;
+  const rotas = ["", "sobremim", "formacao", "cursos", "projetos", "competencias", "contato"];
+  
+  let matchIndex = 0;
+  for (let i = 1; i < rotas.length; i++) {
+    if (path.endsWith("/" + rotas[i]) || path.endsWith("/" + rotas[i] + "/")) {
+      matchIndex = i;
+      break;
+    }
+  }
+  
+  if (matchIndex !== 0 && sections.length > 0) {
+    sections[0].classList.remove("active");
+    sections[matchIndex].classList.add("active");
+    currentSection = matchIndex;
+    
+    for (let i = 0; i < dots.length; i++) {
+      dots[i].classList.remove("active");
+    }
+    if(dots[matchIndex]) dots[matchIndex].classList.add("active");
+    
+    atualizarTemaDots();
+    atualizarNavbar();
+    
+    window.history.replaceState({ sectionIndex: matchIndex }, "", window.location.pathname);
+  } else {
+    window.history.replaceState({ sectionIndex: 0 }, "", window.location.pathname);
+  }
+}
+
+window.addEventListener("popstate", function(e) {
+  if (e.state !== null && typeof e.state.sectionIndex === 'number') {
+    navegarParaSecao(e.state.sectionIndex, true);
+  } else {
+    verificarRotaAtual();
+  }
+});
 
 document.addEventListener("DOMContentLoaded", function () {
   exibirSaudacao();
@@ -330,4 +389,6 @@ document.addEventListener("DOMContentLoaded", function () {
   configurarMenuMobile();
   configurarNavLinks();
   atualizarNavbar();
+  
+  verificarRotaAtual();
 });
